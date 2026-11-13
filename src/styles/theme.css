@@ -18,6 +18,12 @@
   --dark-color-background: #2c2b29;
   --dark-color-logo-primary: #f28cbb;
 
+  /* Fork: the recording overlay's waveform and caret. Light logo-primary is
+     only 1.8:1 against the light pill, so light uses the saturated brand pink
+     (background-ui, ~3.8:1); dark keeps logo-primary (~6.2:1). */
+  --light-color-overlay-accent: var(--color-background-ui);
+  --dark-color-overlay-accent: var(--dark-color-logo-primary);
+
   /* Status colors. Each has a -wash tint below. */
   --light-color-warning: #d97706;
   --light-color-error: #dc2626;
@@ -132,6 +138,7 @@
   --color-text: var(--light-color-text);
   --color-background: var(--light-color-background);
   --color-logo-primary: var(--light-color-logo-primary);
+  --color-overlay-accent: var(--light-color-overlay-accent);
   --color-warning: var(--light-color-warning);
   --color-error: var(--light-color-error);
   --color-moss: var(--light-color-moss);
@@ -170,6 +177,7 @@
     --color-text: var(--dark-color-text);
     --color-background: var(--dark-color-background);
     --color-logo-primary: var(--dark-color-logo-primary);
+    --color-overlay-accent: var(--dark-color-overlay-accent);
     --color-warning: var(--dark-color-warning);
     --color-error: var(--dark-color-error);
     --color-moss: var(--dark-color-moss);
@@ -203,6 +211,7 @@
   --color-text: var(--light-color-text);
   --color-background: var(--light-color-background);
   --color-logo-primary: var(--light-color-logo-primary);
+  --color-overlay-accent: var(--light-color-overlay-accent);
   --color-warning: var(--light-color-warning);
   --color-error: var(--light-color-error);
   --color-moss: var(--light-color-moss);
@@ -225,6 +234,7 @@
   --color-text: var(--dark-color-text);
   --color-background: var(--dark-color-background);
   --color-logo-primary: var(--dark-color-logo-primary);
+  --color-overlay-accent: var(--dark-color-overlay-accent);
   --color-warning: var(--dark-color-warning);
   --color-error: var(--dark-color-error);
   --color-moss: var(--dark-color-moss);

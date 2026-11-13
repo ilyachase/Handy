@@ -5,15 +5,18 @@
   /* Near-opaque app surface (theme.css --color-background at 98%). Auto-flips
      light/dark with --color-background, so no dark-mode override is needed. */
   --s-surface: color-mix(in srgb, var(--color-background) 98%, transparent);
-  /* Accent = logo pink; flips automatically via --color-logo-primary. */
-  --s-accent: var(--color-logo-primary);
+  /* Fork: accent = the overlay pink from theme.css, which is saturated in the
+     light theme so the waveform stays readable on the near-white pill. */
+  --s-accent: var(--color-overlay-accent);
   /* The rest come from theme.css, which already follows the theme setting. */
   --s-accent-soft: color-mix(
     in srgb,
-    var(--color-logo-primary) 20%,
+    var(--color-overlay-accent) 20%,
     transparent
   );
-  --s-muted: var(--color-ink-2);
+  /* Fork: the same grey as --color-ink-2, but solid, so labels don't show
+     through as translucent text. */
+  --s-muted: color-mix(in srgb, var(--color-text) 60%, var(--color-background));
   --s-faint: var(--color-ink-3);
   --s-border: var(--color-line);
   --s-hair: var(--color-wash);
