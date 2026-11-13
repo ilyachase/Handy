@@ -1,5 +1,40 @@
 # Handy
 
+> **This is a personal fork of [cjpais/Handy](https://github.com/cjpais/Handy).**
+> It tracks upstream releases (currently based on `v0.10.0`) and adds a few
+> changes on top. Installers: [Releases](https://github.com/ilyachase/Handy/releases)
+> (Windows x64 NSIS, Linux x64 AppImage; not code-signed). The app updates
+> itself from this fork's releases via **Check for Updates**.
+>
+> ### Differences from upstream
+>
+> - **Transcription prompt** (Settings → Advanced → Transcription): free-text
+>   context for models that accept a prompt (Whisper) — names, terms,
+>   punctuation style. Sent through the model's context-prompt slot, or the
+>   Whisper initial prompt (custom words are merged into it there).
+> - **Reasoning level per post-processing provider**: optional
+>   `reasoning_effort` field on a provider entry in `settings_store.json`
+>   (e.g. `"low"` for `gpt-oss-120b` on Fireworks). When set it is sent with
+>   every request and overrides the built-in "disable reasoning" attempt.
+> - **`${dictionary}` in post-processing prompts** — expands to the custom
+>   words, comma-separated ([discussion #2258](https://github.com/cjpais/Handy/discussions/2258)).
+> - **Add selection to custom words** hotkey (default `Ctrl+Alt+Shift+A`):
+>   copies the selected text in any app and adds it to custom words
+>   ([discussion #2259](https://github.com/cjpais/Handy/discussions/2259)).
+> - **Post-processed text in History**: entries show what was pasted, with a
+>   toggle back to the original transcript; Copy takes the visible version
+>   ([discussion #2260](https://github.com/cjpais/Handy/discussions/2260)).
+> - **Structured post-processing no longer leaves an empty
+>   `<transcript></transcript>` block** in the system prompt
+>   ([issue #2269](https://github.com/cjpais/Handy/issues/2269)).
+> - **OpenRouter structured output requires provider support**
+>   (`provider.require_parameters`), so the JSON schema can't be silently
+>   ignored ([issue #2271](https://github.com/cjpais/Handy/issues/2271)).
+> - Own app identifier `io.github.ilyachase.handy` and updater key; Windows
+>   builds drop upstream's Azure code signing.
+>
+> How the fork is kept in sync: [docs/UPSTREAM-SYNC.md](docs/UPSTREAM-SYNC.md).
+
 [![Discord](https://img.shields.io/badge/Discord-%235865F2.svg?style=for-the-badge&logo=discord&logoColor=white)](https://discord.com/invite/WVBeWsNXK4)
 
 **A free, open source, and extensible speech-to-text application that works completely offline.**
