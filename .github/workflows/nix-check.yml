@@ -35,6 +35,8 @@ concurrency:
 
 jobs:
   nix-build:
+    # Fork: the fork ships NSIS/AppImage only, so the ~30 min Nix build runs only in cjpais/Handy.
+    if: github.repository == 'cjpais/Handy'
     runs-on: ubuntu-24.04
     continue-on-error: false
     steps:

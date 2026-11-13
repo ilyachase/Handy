@@ -42,4 +42,5 @@ Publish the draft by hand.
 The upstream **Main Branch Build** workflow expects upstream's Apple/Azure
 signing secrets, so its job carries `if: github.repository == 'cjpais/Handy'`
 and is skipped here. Keep that line when a sync conflicts on
-`.github/workflows/main-build.yml`.
+`.github/workflows/main-build.yml`. The same guard skips the Nix build in
+`.github/workflows/nix-check.yml`: the fork ships NSIS and AppImage only.
