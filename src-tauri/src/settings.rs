@@ -1014,8 +1014,7 @@ pub fn get_default_settings() -> AppSettings {
         ShortcutBinding {
             id: "add_selection_to_dictionary".to_string(),
             name: "Add Selection to Custom Words".to_string(),
-            description: "Adds the text selected in any app to the custom words list."
-                .to_string(),
+            description: "Adds the text selected in any app to the custom words list.".to_string(),
             default_binding: "ctrl+alt+shift+a".to_string(),
             current_binding: "ctrl+alt+shift+a".to_string(),
         },

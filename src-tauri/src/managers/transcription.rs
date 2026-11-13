@@ -1641,7 +1641,10 @@ fn prompting_for_model(
     transcription_prompt: Option<&str>,
 ) -> Prompting {
     let vocabulary = || vocabulary_for_model(supports_vocabulary, custom_words);
-    let Some(text) = transcription_prompt.map(str::trim).filter(|t| !t.is_empty()) else {
+    let Some(text) = transcription_prompt
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+    else {
         return Prompting {
             vocabulary: vocabulary(),
             ..Default::default()
@@ -2438,7 +2441,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn fuzzy_correction_is_skipped_exactly_when_vocabulary_was_sent() {
         let settings = AppSettings {
             selected_language: "en".to_string(),
@@ -2546,7 +2548,10 @@ mod fork_tests {
         );
         assert!(p.vocabulary.is_empty());
         assert_eq!(p.prompt, None);
-        assert_eq!(p.initial_prompt.as_deref(), Some("Handy, GitHub\n\nПривет!"));
+        assert_eq!(
+            p.initial_prompt.as_deref(),
+            Some("Handy, GitHub\n\nПривет!")
+        );
         assert!(p.words_prompted(&words(&["Handy", "GitHub"])));
 
         let no_words = prompting_for_model(true, false, true, &[], Some("Привет!"));

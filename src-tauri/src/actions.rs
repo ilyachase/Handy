@@ -1323,6 +1323,9 @@ mod fork_tests {
             "Names: YClients, Kimi."
         );
         assert_eq!(expand_dictionary("Names: ${dictionary}.", &[]), "Names: .");
-        assert_eq!(expand_dictionary("No placeholder", &words), "No placeholder");
+        assert_eq!(
+            expand_dictionary("No placeholder", &words),
+            "No placeholder"
+        );
     }
 }

@@ -1112,7 +1112,11 @@ mod fork_tests {
             serde_json::json!({ "reasoning_effort": "none" })
         );
         assert_eq!(
-            json(reasoning_params(&provider("custom", Some("  ")), true, false)),
+            json(reasoning_params(
+                &provider("custom", Some("  ")),
+                true,
+                false
+            )),
             serde_json::json!({ "reasoning_effort": "none" })
         );
     }
@@ -1120,7 +1124,11 @@ mod fork_tests {
     #[test]
     fn rejected_endpoint_gets_no_reasoning_fields() {
         assert_eq!(
-            json(reasoning_params(&provider("fireworks", Some("low")), false, true)),
+            json(reasoning_params(
+                &provider("fireworks", Some("low")),
+                false,
+                true
+            )),
             serde_json::json!({})
         );
     }
