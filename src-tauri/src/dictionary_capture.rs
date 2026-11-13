@@ -25,6 +25,17 @@ pub enum CaptureOutcome {
     Failed,
 }
 
+/// The outcome without the word, for the log.
+fn outcome_kind(outcome: &CaptureOutcome) -> &'static str {
+    match outcome {
+        CaptureOutcome::Added(_) => "added",
+        CaptureOutcome::Duplicate(_) => "duplicate",
+        CaptureOutcome::Empty => "empty",
+        CaptureOutcome::TooLong => "too_long",
+        CaptureOutcome::Failed => "failed",
+    }
+}
+
 /// Normalize a selection into a custom word: strip characters the Custom Words
 /// field strips (`<>"'`), collapse whitespace, trim punctuation at both ends.
 /// Returns the outcome without touching settings.
@@ -51,6 +62,11 @@ pub fn normalize_capture(raw: &str, existing: &[String]) -> CaptureOutcome {
 /// thread: it waits for the hotkey's modifiers to be released before sending
 /// the copy shortcut, otherwise the target app would see e.g. Ctrl+Alt+Shift+C.
 pub fn capture_selection(app: &AppHandle) {
+    #[cfg(target_os = "windows")]
+    if !crate::input::wait_for_modifiers_released(std::time::Duration::from_secs(3)) {
+        warn!("Hotkey modifiers still held after 3 s; copying anyway");
+    }
+    #[cfg(not(target_os = "windows"))]
     std::thread::sleep(std::time::Duration::from_millis(150));
     let outcome = match crate::clipboard::copy_selection(app) {
         Ok(Some(text)) => {
@@ -60,7 +76,6 @@ pub fn capture_selection(app: &AppHandle) {
                 let mut updated = current;
                 updated.custom_words.push(word.clone());
                 settings::write_settings(app, updated);
-                info!("Added selected word to custom words");
             }
             outcome
         }
@@ -70,6 +85,7 @@ pub fn capture_selection(app: &AppHandle) {
             CaptureOutcome::Failed
         }
     };
+    info!("Add-selection hotkey result: {}", outcome_kind(&outcome));
     let _ = app.emit(RESULT_EVENT, &outcome);
 }
 

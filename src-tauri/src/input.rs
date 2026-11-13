@@ -202,6 +202,32 @@ pub fn send_paste_ctrl_v(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> 
     Ok(())
 }
 
+/// Waits until Ctrl, Alt, Shift and Win are physically released, up to
+/// `timeout`. A hotkey's release event fires when its letter key goes up, while
+/// the user may still hold its modifiers; a synthetic Ctrl+C sent then reaches
+/// the app as e.g. Ctrl+Alt+Shift+C. Returns false on timeout.
+#[cfg(target_os = "windows")]
+pub fn wait_for_modifiers_released(timeout: std::time::Duration) -> bool {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        GetAsyncKeyState, VIRTUAL_KEY, VK_CONTROL, VK_LWIN, VK_MENU, VK_RWIN, VK_SHIFT,
+    };
+    const MODIFIERS: [VIRTUAL_KEY; 5] = [VK_CONTROL, VK_MENU, VK_SHIFT, VK_LWIN, VK_RWIN];
+    let started = std::time::Instant::now();
+    loop {
+        // The high bit is set while the key is down.
+        let held = MODIFIERS
+            .iter()
+            .any(|vk| unsafe { GetAsyncKeyState(i32::from(vk.0)) } < 0);
+        if !held {
+            return true;
+        }
+        if started.elapsed() >= timeout {
+            return false;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
 /// Sends the platform copy shortcut (Ctrl+C, Cmd+C on macOS), layout-independent
 /// like `send_paste_ctrl_v`.
 pub fn send_copy_ctrl_c(enigo: &mut Enigo, hold_ms: u64) -> Result<(), String> {
