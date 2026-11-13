@@ -39,5 +39,7 @@ release with Windows NSIS and Linux AppImage builds plus `latest.json`
 signed with the fork's updater key (`TAURI_SIGNING_PRIVATE_KEY*` secrets).
 Publish the draft by hand.
 
-The upstream **Main Branch Build** workflow is disabled in this fork: it
-expects upstream's Apple/Azure signing secrets.
+The upstream **Main Branch Build** workflow expects upstream's Apple/Azure
+signing secrets, so its job carries `if: github.repository == 'cjpais/Handy'`
+and is skipped here. Keep that line when a sync conflicts on
+`.github/workflows/main-build.yml`.
