@@ -344,6 +344,14 @@ async updateCustomWords(words: string[]) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async updateTranscriptionPrompt(prompt: string | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_transcription_prompt", { prompt }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
  * Temporarily unregister all bindings while the user is recording a
  * shortcut in the UI. This avoids firing actions while keys are recorded.
@@ -1170,7 +1178,14 @@ language_detection_window_secs?: number;
  * not gated on this — that follows model capability. Migrated from the old
  * `overlay_position` (position `none` → style `None`).
  */
-overlay_style?: OverlayStyle }
+overlay_style?: OverlayStyle; 
+/**
+ * Free-text context prompt for models that accept one (whisper family):
+ * steers names, terminology and punctuation style. `None` or blank sends
+ * nothing. Fork feature; the key matches klava-nevinovata so its settings
+ * files load unchanged.
+ */
+transcription_prompt?: string | null }
 export type AudioDevice = { index: string; name: string; is_default: boolean }
 export type AutoSubmitKey = "enter" | "ctrl_enter" | "cmd_enter"
 export type AutoUnavailableReason = 
@@ -1386,7 +1401,14 @@ export type PostProcessApiFormat =
  * Anthropic Messages (`/messages`)
  */
 "anthropic"
-export type PostProcessProvider = { id: string; label: string; base_url: string; allow_base_url_edit?: boolean; models_endpoint?: string | null; supports_structured_output?: boolean; api_format?: PostProcessApiFormat }
+export type PostProcessProvider = { id: string; label: string; base_url: string; allow_base_url_edit?: boolean; models_endpoint?: string | null; supports_structured_output?: boolean; api_format?: PostProcessApiFormat; 
+/**
+ * Reasoning level sent with every post-processing request (e.g. "low"
+ * for gpt-oss on Fireworks). Overrides the built-in "disable reasoning"
+ * attempt for custom/openrouter. `None` keeps upstream behavior. Fork
+ * feature; set in settings_store.json, no UI.
+ */
+reasoning_effort?: string | null }
 /**
  * Recording phase events for windows that follow along (onboarding's Try it).
  */

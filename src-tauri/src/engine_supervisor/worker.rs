@@ -315,6 +315,7 @@ fn load(
         supports_initial_prompt: model.supports(Feature::InitialPrompt),
         supports_long_form: model.supports(Feature::LongForm),
         supports_vocabulary: model.supports(Feature::Vocabulary),
+        supports_context_prompt: model.supports(Feature::ContextPrompt),
     };
     Ok((session, info))
 }

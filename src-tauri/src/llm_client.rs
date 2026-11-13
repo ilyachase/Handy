@@ -85,6 +85,56 @@ fn reasoning_disable_params(provider: &PostProcessProvider) -> ReasoningParams {
     }
 }
 
+/// Request fields carrying a configured reasoning level. OpenRouter nests it
+/// like its disable form; everyone else takes the OpenAI-style field.
+fn reasoning_effort_params(provider: &PostProcessProvider, effort: &str) -> ReasoningParams {
+    if provider.id == "openrouter" {
+        ReasoningParams {
+            reasoning: Some(ReasoningConfig {
+                effort: Some(effort.to_string()),
+                exclude: Some(true),
+            }),
+            ..Default::default()
+        }
+    } else {
+        ReasoningParams {
+            reasoning_effort: Some(effort.to_string()),
+            ..Default::default()
+        }
+    }
+}
+
+/// The reasoning fields for one request: a provider's configured
+/// `reasoning_effort` wins over the disable attempt; an endpoint that already
+/// rejected reasoning fields gets none.
+fn reasoning_params(
+    provider: &PostProcessProvider,
+    disable_reasoning: bool,
+    known_rejected: bool,
+) -> ReasoningParams {
+    if known_rejected {
+        return ReasoningParams::default();
+    }
+    let configured = provider
+        .reasoning_effort
+        .as_deref()
+        .map(str::trim)
+        .filter(|e| !e.is_empty());
+    match configured {
+        Some(effort) => reasoning_effort_params(provider, effort),
+        None if disable_reasoning => reasoning_disable_params(provider),
+        None => ReasoningParams::default(),
+    }
+}
+
+/// OpenRouter routes to any upstream unless told otherwise, and one that
+/// doesn't support `response_format` silently ignores the schema
+/// (cjpais/Handy issue #2271). Require the requested parameters then.
+fn routing_params(provider: &PostProcessProvider, structured: bool) -> Option<Value> {
+    (provider.id == "openrouter" && structured)
+        .then(|| serde_json::json!({ "require_parameters": true }))
+}
+
 /// Endpoints (base_url|model) that rejected the reasoning-disable fields with a
 /// 4xx. Remembered for the lifetime of the process so every dictation after the
 /// first skips the doomed attempt and goes straight to a plain request.
@@ -119,6 +169,9 @@ struct ChatCompletionRequest {
     response_format: Option<ResponseFormat>,
     #[serde(flatten)]
     reasoning: ReasoningParams,
+    /// OpenRouter provider routing preferences.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    provider: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -454,11 +507,8 @@ pub async fn send_chat_completion_with_schema(
     });
 
     let key = endpoint_key(provider, model);
-    let reasoning = if disable_reasoning && !is_known_rejected(&key) {
-        reasoning_disable_params(provider)
-    } else {
-        ReasoningParams::default()
-    };
+    let reasoning = reasoning_params(provider, disable_reasoning, is_known_rejected(&key));
+    let routing = routing_params(provider, response_format.is_some());
 
     let mut request_body = ChatCompletionRequest {
         model: model.to_string(),
@@ -466,6 +516,7 @@ pub async fn send_chat_completion_with_schema(
         stream: false,
         response_format,
         reasoning,
+        provider: routing,
     };
 
     let mut response = client
@@ -720,6 +771,7 @@ mod tests {
             models_endpoint: None,
             supports_structured_output: false,
             api_format: PostProcessApiFormat::OpenAi,
+            reasoning_effort: None,
         }
     }
 
@@ -740,6 +792,7 @@ mod tests {
             stream: false,
             response_format: None,
             reasoning,
+            provider: None,
         };
         serde_json::to_value(&request).unwrap()
     }
@@ -996,5 +1049,108 @@ mod tests {
         )
         .await;
         assert!(result.unwrap_err().contains("truncated"));
+    }
+}
+
+#[cfg(test)]
+mod fork_tests {
+    use super::{reasoning_params, routing_params};
+    use crate::settings::{PostProcessApiFormat, PostProcessProvider};
+
+    fn provider(id: &str, effort: Option<&str>) -> PostProcessProvider {
+        PostProcessProvider {
+            id: id.to_string(),
+            label: id.to_string(),
+            base_url: "https://api.example.com/v1".to_string(),
+            allow_base_url_edit: true,
+            models_endpoint: None,
+            supports_structured_output: true,
+            api_format: PostProcessApiFormat::OpenAi,
+            reasoning_effort: effort.map(str::to_string),
+        }
+    }
+
+    fn json(params: super::ReasoningParams) -> serde_json::Value {
+        serde_json::to_value(params).unwrap()
+    }
+
+    #[test]
+    fn configured_effort_is_sent_as_is() {
+        let p = provider("fireworks", Some("low"));
+        assert_eq!(
+            json(reasoning_params(&p, false, false)),
+            serde_json::json!({ "reasoning_effort": "low" })
+        );
+    }
+
+    #[test]
+    fn configured_effort_overrides_disable_for_custom() {
+        let p = provider("custom", Some("low"));
+        assert_eq!(
+            json(reasoning_params(&p, true, false)),
+            serde_json::json!({ "reasoning_effort": "low" })
+        );
+    }
+
+    #[test]
+    fn configured_effort_uses_nested_form_for_openrouter() {
+        let p = provider("openrouter", Some("low"));
+        assert_eq!(
+            json(reasoning_params(&p, true, false)),
+            serde_json::json!({ "reasoning": { "effort": "low", "exclude": true } })
+        );
+    }
+
+    #[test]
+    fn unset_effort_keeps_upstream_behavior() {
+        assert_eq!(
+            json(reasoning_params(&provider("fireworks", None), false, false)),
+            serde_json::json!({})
+        );
+        assert_eq!(
+            json(reasoning_params(&provider("custom", None), true, false)),
+            serde_json::json!({ "reasoning_effort": "none" })
+        );
+        assert_eq!(
+            json(reasoning_params(&provider("custom", Some("  ")), true, false)),
+            serde_json::json!({ "reasoning_effort": "none" })
+        );
+    }
+
+    #[test]
+    fn rejected_endpoint_gets_no_reasoning_fields() {
+        assert_eq!(
+            json(reasoning_params(&provider("fireworks", Some("low")), false, true)),
+            serde_json::json!({})
+        );
+    }
+
+    #[test]
+    fn openrouter_structured_output_requires_parameters() {
+        assert_eq!(
+            routing_params(&provider("openrouter", None), true),
+            Some(serde_json::json!({ "require_parameters": true }))
+        );
+        assert_eq!(routing_params(&provider("openrouter", None), false), None);
+        assert_eq!(routing_params(&provider("fireworks", None), true), None);
+    }
+
+    #[test]
+    fn provider_without_effort_field_deserializes() {
+        let stored = serde_json::json!({
+            "id": "fireworks",
+            "label": "Fireworks",
+            "base_url": "https://api.fireworks.ai/inference/v1",
+            "allow_base_url_edit": false,
+            "models_endpoint": "/models",
+            "supports_structured_output": true
+        });
+        let p: PostProcessProvider = serde_json::from_value(stored.clone()).unwrap();
+        assert_eq!(p.reasoning_effort, None);
+
+        let mut with_effort = stored;
+        with_effort["reasoning_effort"] = serde_json::json!("low");
+        let p: PostProcessProvider = serde_json::from_value(with_effort).unwrap();
+        assert_eq!(p.reasoning_effort.as_deref(), Some("low"));
     }
 }

@@ -137,6 +137,126 @@ fn paste_via_clipboard(
     })
 }
 
+/// Reads the clipboard as text (wl-paste on Wayland, like writes use wl-copy).
+fn read_clipboard_text(app_handle: &AppHandle) -> Option<String> {
+    #[cfg(target_os = "linux")]
+    if is_wayland() && is_wl_copy_available() {
+        if let Ok(output) = Command::new("wl-paste").arg("--no-newline").output() {
+            if output.status.success() {
+                let text = String::from_utf8_lossy(&output.stdout).to_string();
+                return Some(text).filter(|t| !t.is_empty());
+            }
+        }
+    }
+    app_handle
+        .clipboard()
+        .read_text()
+        .ok()
+        .filter(|t| !t.is_empty())
+}
+
+fn clear_clipboard(app_handle: &AppHandle) {
+    #[cfg(target_os = "linux")]
+    if is_wayland() && is_wl_copy_available() {
+        let _ = Command::new("wl-copy").arg("--clear").status();
+        return;
+    }
+    let _ = app_handle.clipboard().clear();
+}
+
+/// Copies the focused app's selection and returns it as text, then restores
+/// the user's clipboard (text, else image, else empty — the same rules as the
+/// legacy paste path). `Ok(None)` when nothing was copied. Call from a worker
+/// thread, never the main thread.
+pub fn copy_selection(app_handle: &AppHandle) -> Result<Option<String>, String> {
+    let _paste = PASTE_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    let clipboard = app_handle.clipboard();
+    let saved_text = read_clipboard_text(app_handle);
+    let saved_image = if saved_text.is_none() {
+        clipboard.read_image().ok().map(|image| image.to_owned())
+    } else {
+        None
+    };
+
+    // Start from an empty clipboard so an app that copies nothing is not
+    // mistaken for one that copied the old content.
+    clear_clipboard(app_handle);
+    let copy_result = send_copy_shortcut(app_handle);
+    let wait_ms = get_settings(app_handle).paste_delay_after_ms.max(150);
+    std::thread::sleep(Duration::from_millis(wait_ms));
+    let copied = if copy_result.is_ok() {
+        read_clipboard_text(app_handle)
+    } else {
+        None
+    };
+
+    if let Some(text) = saved_text {
+        let _ = write_text_to_clipboard(app_handle, &text);
+    } else if let Some(image) = saved_image {
+        let _ = clipboard.write_image(&image);
+    } else {
+        clear_clipboard(app_handle);
+    }
+
+    copy_result?;
+    Ok(copied.filter(|t| !t.trim().is_empty()))
+}
+
+fn send_copy_shortcut(app_handle: &AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "linux")]
+    if try_send_copy_linux()? {
+        return Ok(());
+    }
+    with_enigo(app_handle, |enigo| input::send_copy_ctrl_c(enigo, 100))
+}
+
+/// Sends Ctrl+C with the same Linux tool order as the paste shortcut.
+#[cfg(target_os = "linux")]
+fn try_send_copy_linux() -> Result<bool, String> {
+    let run = |program: &str, args: &[&str]| -> Result<bool, String> {
+        let output = Command::new(program)
+            .args(args)
+            .output()
+            .map_err(|e| format!("Failed to execute {program}: {e}"))?;
+        if !output.status.success() {
+            return Err(format!(
+                "{program} failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ));
+        }
+        Ok(true)
+    };
+    if is_wayland() {
+        if !is_kde_wayland() && !is_gnome_wayland() && is_wtype_available() {
+            return run("wtype", &["-M", "ctrl", "-k", "c", "-m", "ctrl"]);
+        }
+        if is_dotool_available() {
+            return run("sh", &["-c", "echo key ctrl+c | dotool"]);
+        }
+        if is_ydotool_available() {
+            return match detect_ydotool_key_syntax() {
+                YdotoolKeySyntax::Symbolic => run("ydotool", &["key", "ctrl+c"]),
+                YdotoolKeySyntax::RawKeycodes => {
+                    run("ydotool", &["key", "29:1", "46:1", "46:0", "29:0"])
+                }
+            };
+        }
+    } else {
+        if is_xdotool_available() {
+            return run("xdotool", &["key", "--clearmodifiers", "ctrl+c"]);
+        }
+        if is_ydotool_available() {
+            return match detect_ydotool_key_syntax() {
+                YdotoolKeySyntax::Symbolic => run("ydotool", &["key", "ctrl+c"]),
+                YdotoolKeySyntax::RawKeycodes => {
+                    run("ydotool", &["key", "29:1", "46:1", "46:0", "29:0"])
+                }
+            };
+        }
+    }
+    Ok(false)
+}
+
 /// Attempts to send a key combination using Linux-native tools.
 /// Returns `Ok(true)` if a native tool handled it, `Ok(false)` to fall back to enigo.
 #[cfg(target_os = "linux")]

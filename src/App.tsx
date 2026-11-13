@@ -31,6 +31,7 @@ import { FileDropOverlay } from "./components/FileDropOverlay";
 import { Sidebar, SidebarSection, SECTIONS_CONFIG } from "./components/Sidebar";
 import { WhatsNewGate } from "./components/whats-new";
 import { useSettings } from "./hooks/useSettings";
+import { useDictionaryCapture } from "./hooks/useDictionaryCapture";
 import { useSettingsStore } from "./stores/settingsStore";
 import { commands } from "@/bindings";
 import { deleteRetiredModel } from "@/lib/models/retired";
@@ -87,6 +88,7 @@ function App() {
   const showHistory = useCallback(() => setCurrentSection("history"), []);
   const { settings, updateSetting } = useSettings();
   const direction = getLanguageDirection(i18n.language);
+  useDictionaryCapture();
   const refreshAudioDevices = useSettingsStore(
     (state) => state.refreshAudioDevices,
   );

@@ -348,6 +348,10 @@
           "transcribe_with_post_process": {
             "name": "पोस्ट-प्रोसेसिङ हटकी",
             "description": "वैकल्पिक: तपाईंको ट्रान्सक्रिप्सनमा सधैँ AI पोस्ट-प्रोसेसिङ लागू गर्ने छुट्टै हटकी।"
+          },
+          "add_selection_to_dictionary": {
+            "name": "Add Selection to Custom Words",
+            "description": "Select a word in any app and press this shortcut to add it to custom words."
           }
         },
         "errors": {
@@ -588,7 +592,13 @@
         "placeholder": "शब्द थप्नुहोस्",
         "add": "थप्नुहोस्",
         "remove": "{{word}} हटाउनुहोस्",
-        "duplicate": "\"{{word}}\" पहिले नै छ"
+        "duplicate": "\"{{word}}\" पहिले नै छ",
+        "capture": {
+          "added": "Added \"{{word}}\" to custom words",
+          "empty": "Nothing selected to add",
+          "tooLong": "The selection is longer than 50 characters",
+          "failed": "Couldn't copy the selection"
+        }
       },
       "voiceActivityDetection": {
         "title": "भ्वाइस एक्टिभिटी डिटेक्सन",
@@ -625,6 +635,11 @@
           "traditionalTw": "परम्परागत (ताइवान)",
           "traditionalHk": "परम्परागत (हङकङ)"
         }
+      },
+      "transcriptionPrompt": {
+        "title": "Transcription Prompt",
+        "description": "Example text that sets context and style for models that accept a prompt (Whisper): names, terms, punctuation. Other models ignore it. Leave empty to send nothing.",
+        "placeholder": "e.g. Hello! How are you? We shipped the feature through a pull request, and the CI/CD pipeline passed."
       }
     },
     "postProcessing": {
@@ -687,7 +702,8 @@
         "createPrompt": "प्रम्प्ट बनाउनुहोस्",
         "cancel": "रद्द गर्नुहोस्",
         "selectToEdit": "विवरण हेर्न र सम्पादन गर्न माथिबाट प्रम्प्ट चयन गर्नुहोस्।",
-        "createFirst": "आफ्नो पहिलो पोस्ट-प्रोसेसिङ प्रम्प्ट बनाउन माथिको 'नयाँ प्रम्प्ट बनाउनुहोस्' क्लिक गर्नुहोस्।"
+        "createFirst": "आफ्नो पहिलो पोस्ट-प्रोसेसिङ प्रम्प्ट बनाउन माथिको 'नयाँ प्रम्प्ट बनाउनुहोस्' क्लिक गर्नुहोस्।",
+        "dictionaryTip": "Use <code>${dictionary}</code> to insert your custom words, separated by commas."
       }
     },
     "history": {
@@ -716,7 +732,12 @@
       "showMore": "थप देखाउनुहोस्",
       "showLess": "कम देखाउनुहोस्",
       "dropTitle": "ट्रान्सक्राइब गर्न छोड्नुहोस्",
-      "dropDescription": "यो इतिहासमा देखिनेछ।"
+      "dropDescription": "यो इतिहासमा देखिनेछ।",
+      "textVariant": {
+        "label": "Text version",
+        "processed": "Post-processed",
+        "original": "Original"
+      }
     },
     "debug": {
       "title": "डिबग",

@@ -348,6 +348,10 @@
           "transcribe_with_post_process": {
             "name": "Snabbkommando för efterbearbetning",
             "description": "Valfritt: En dedikerad snabbknapp som alltid tillämpar AI-efterbearbetning på din transkription."
+          },
+          "add_selection_to_dictionary": {
+            "name": "Add Selection to Custom Words",
+            "description": "Select a word in any app and press this shortcut to add it to custom words."
           }
         },
         "errors": {
@@ -588,7 +592,13 @@
         "placeholder": "Lägg till ett ord",
         "add": "Lägg till",
         "remove": "Ta bort {{word}}",
-        "duplicate": "\"{{word}}\" finns redan"
+        "duplicate": "\"{{word}}\" finns redan",
+        "capture": {
+          "added": "Added \"{{word}}\" to custom words",
+          "empty": "Nothing selected to add",
+          "tooLong": "The selection is longer than 50 characters",
+          "failed": "Couldn't copy the selection"
+        }
       },
       "voiceActivityDetection": {
         "title": "Röstaktivitetsdetektering",
@@ -625,6 +635,11 @@
           "traditionalTw": "Traditionell (Taiwan)",
           "traditionalHk": "Traditionell (Hongkong)"
         }
+      },
+      "transcriptionPrompt": {
+        "title": "Transcription Prompt",
+        "description": "Example text that sets context and style for models that accept a prompt (Whisper): names, terms, punctuation. Other models ignore it. Leave empty to send nothing.",
+        "placeholder": "e.g. Hello! How are you? We shipped the feature through a pull request, and the CI/CD pipeline passed."
       }
     },
     "postProcessing": {
@@ -687,7 +702,8 @@
         "createPrompt": "Skapa prompt",
         "cancel": "Avbryt",
         "selectToEdit": "Välj en prompt ovan för att visa och redigera dess detaljer.",
-        "createFirst": "Klicka på 'Skapa ny prompt' ovan för att skapa din första prompt för efterbearbetning."
+        "createFirst": "Klicka på 'Skapa ny prompt' ovan för att skapa din första prompt för efterbearbetning.",
+        "dictionaryTip": "Use <code>${dictionary}</code> to insert your custom words, separated by commas."
       }
     },
     "history": {
@@ -716,7 +732,12 @@
       "showMore": "Visa mer",
       "showLess": "Visa mindre",
       "dropTitle": "Släpp för att transkribera",
-      "dropDescription": "Den visas i historiken."
+      "dropDescription": "Den visas i historiken.",
+      "textVariant": {
+        "label": "Text version",
+        "processed": "Post-processed",
+        "original": "Original"
+      }
     },
     "debug": {
       "title": "Felsökning",

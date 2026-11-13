@@ -348,6 +348,10 @@
           "transcribe_with_post_process": {
             "name": "후처리 단축키",
             "description": "선택 사항: 항상 AI 후처리를 적용하는 전용 단축키입니다."
+          },
+          "add_selection_to_dictionary": {
+            "name": "Add Selection to Custom Words",
+            "description": "Select a word in any app and press this shortcut to add it to custom words."
           }
         },
         "errors": {
@@ -588,7 +592,13 @@
         "placeholder": "단어 추가",
         "add": "추가",
         "remove": "{{word}} 제거",
-        "duplicate": "\"{{word}}\"이(가) 이미 존재합니다"
+        "duplicate": "\"{{word}}\"이(가) 이미 존재합니다",
+        "capture": {
+          "added": "Added \"{{word}}\" to custom words",
+          "empty": "Nothing selected to add",
+          "tooLong": "The selection is longer than 50 characters",
+          "failed": "Couldn't copy the selection"
+        }
       },
       "voiceActivityDetection": {
         "title": "음성 활동 감지",
@@ -625,6 +635,11 @@
           "traditionalTw": "번체 (대만)",
           "traditionalHk": "번체 (홍콩)"
         }
+      },
+      "transcriptionPrompt": {
+        "title": "Transcription Prompt",
+        "description": "Example text that sets context and style for models that accept a prompt (Whisper): names, terms, punctuation. Other models ignore it. Leave empty to send nothing.",
+        "placeholder": "e.g. Hello! How are you? We shipped the feature through a pull request, and the CI/CD pipeline passed."
       }
     },
     "postProcessing": {
@@ -687,7 +702,8 @@
         "createPrompt": "프롬프트 만들기",
         "cancel": "취소",
         "selectToEdit": "세부 정보를 보고 편집하려면 위에서 프롬프트를 선택하세요.",
-        "createFirst": "첫 번째 후처리 프롬프트를 만들려면 위의 '새 프롬프트 만들기'를 클릭하세요."
+        "createFirst": "첫 번째 후처리 프롬프트를 만들려면 위의 '새 프롬프트 만들기'를 클릭하세요.",
+        "dictionaryTip": "Use <code>${dictionary}</code> to insert your custom words, separated by commas."
       }
     },
     "history": {
@@ -716,7 +732,12 @@
       "showMore": "더 보기",
       "showLess": "간략히 보기",
       "dropTitle": "놓아서 받아쓰기",
-      "dropDescription": "기록에 표시됩니다."
+      "dropDescription": "기록에 표시됩니다.",
+      "textVariant": {
+        "label": "Text version",
+        "processed": "Post-processed",
+        "original": "Original"
+      }
     },
     "debug": {
       "title": "디버그",

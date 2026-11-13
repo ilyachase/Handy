@@ -348,6 +348,10 @@
           "transcribe_with_post_process": {
             "name": "Tasto di post-elaborazione",
             "description": "Facoltativo: Un tasto di scelta rapida dedicato che applica sempre la post-elaborazione IA alla trascrizione."
+          },
+          "add_selection_to_dictionary": {
+            "name": "Add Selection to Custom Words",
+            "description": "Select a word in any app and press this shortcut to add it to custom words."
           }
         },
         "errors": {
@@ -588,7 +592,13 @@
         "placeholder": "Aggiungi una parola",
         "add": "Aggiungi",
         "remove": "Rimuovi {{word}}",
-        "duplicate": "\"{{word}}\" esiste già"
+        "duplicate": "\"{{word}}\" esiste già",
+        "capture": {
+          "added": "Added \"{{word}}\" to custom words",
+          "empty": "Nothing selected to add",
+          "tooLong": "The selection is longer than 50 characters",
+          "failed": "Couldn't copy the selection"
+        }
       },
       "voiceActivityDetection": {
         "title": "Rilevamento dell'attività vocale",
@@ -625,6 +635,11 @@
           "traditionalTw": "Tradizionale (Taiwan)",
           "traditionalHk": "Tradizionale (Hong Kong)"
         }
+      },
+      "transcriptionPrompt": {
+        "title": "Transcription Prompt",
+        "description": "Example text that sets context and style for models that accept a prompt (Whisper): names, terms, punctuation. Other models ignore it. Leave empty to send nothing.",
+        "placeholder": "e.g. Hello! How are you? We shipped the feature through a pull request, and the CI/CD pipeline passed."
       }
     },
     "postProcessing": {
@@ -687,7 +702,8 @@
         "createPrompt": "Crea Prompt",
         "cancel": "Annulla",
         "selectToEdit": "Scegli un prompt qui sopra per visualizzare o modificare i dettagli.",
-        "createFirst": "Clicca 'Crea un nuovo prompt' qui sopra per creare il tuo primo prompt di post-elaborazione."
+        "createFirst": "Clicca 'Crea un nuovo prompt' qui sopra per creare il tuo primo prompt di post-elaborazione.",
+        "dictionaryTip": "Use <code>${dictionary}</code> to insert your custom words, separated by commas."
       }
     },
     "history": {
@@ -716,7 +732,12 @@
       "showMore": "Mostra di più",
       "showLess": "Mostra di meno",
       "dropTitle": "Rilascia per trascrivere",
-      "dropDescription": "Comparirà nella cronologia."
+      "dropDescription": "Comparirà nella cronologia.",
+      "textVariant": {
+        "label": "Text version",
+        "processed": "Post-processed",
+        "original": "Original"
+      }
     },
     "debug": {
       "title": "Debug",

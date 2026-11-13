@@ -36,6 +36,11 @@ import { AudioPlayer, AudioPlayerGroup } from "../../ui/AudioPlayer";
 import { Button } from "../../ui/Button";
 import { copyToClipboard } from "./clipboard";
 import {
+  hasProcessedText,
+  visibleHistoryText,
+  type HistoryTextVariant,
+} from "./historyText";
+import {
   pickAndTranscribeFiles,
   useFileReadsStore,
   type FileRead,
@@ -331,7 +336,7 @@ export const HistorySettings: React.FC = () => {
                 entry={entry}
                 job={jobs[entry.id]}
                 onToggleSaved={() => toggleSaved(entry.id)}
-                onCopyText={() => copyToClipboard(entry.transcription_text)}
+                onCopyText={(text) => copyToClipboard(text)}
                 getAudioUrl={getAudioUrl}
                 deleteAudio={deleteAudioEntry}
                 retryTranscription={commands.retryHistoryEntryTranscription}
@@ -380,7 +385,7 @@ interface HistoryEntryProps {
   entry: HistoryEntry;
   job?: ActiveJobStatus;
   onToggleSaved: () => void;
-  onCopyText: () => Promise<boolean>;
+  onCopyText: (text: string) => Promise<boolean>;
   getAudioUrl: (fileName: string) => Promise<string | null>;
   deleteAudio: (id: number) => Promise<void>;
   retryTranscription: (id: number) => Promise<void>;
@@ -404,13 +409,16 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
   const [expanded, setExpanded] = useState(false);
   const [overflows, setOverflows] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
+  const [variant, setVariant] = useState<HistoryTextVariant>("processed");
+  const showsToggle = hasProcessedText(entry);
+  const text = visibleHistoryText(entry, variant);
 
   // Queued or being transcribed in the background.
   const retrying = job !== undefined;
   useEffect(() => {
     if (!retrying) setCancelling(false);
   }, [retrying]);
-  const hasTranscription = entry.transcription_text.trim().length > 0;
+  const hasTranscription = text.trim().length > 0;
   const folded = hasTranscription && !retrying && !expanded;
 
   // Offer "Show more" only when the folded text is actually cut off.
@@ -422,7 +430,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [folded, entry.transcription_text]);
+  }, [folded, text]);
 
   const handleLoadAudio = useCallback(
     () => getAudioUrl(entry.file_name),
@@ -434,7 +442,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
       return;
     }
 
-    const copied = await onCopyText();
+    const copied = await onCopyText(text);
     if (!copied) {
       notify({ title: t("settings.history.copyError") });
       return;
@@ -535,6 +543,29 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
       </div>
 
       <div className="flex flex-col items-start gap-1 pb-2">
+        {showsToggle && !retrying && (
+          <div
+            className="flex items-center gap-3 text-xs font-medium"
+            role="group"
+            aria-label={t("settings.history.textVariant.label")}
+          >
+            {(["processed", "original"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={variant === option}
+                onClick={() => setVariant(option)}
+                className={`cursor-pointer ${
+                  variant === option
+                    ? "text-logo-primary"
+                    : "text-ink-3 hover:text-logo-primary"
+                }`}
+              >
+                {t(`settings.history.textVariant.${option}`)}
+              </button>
+            ))}
+          </div>
+        )}
         <p
           ref={textRef}
           className={`italic text-sm w-full ${
@@ -561,7 +592,7 @@ const HistoryEntryComponent: React.FC<HistoryEntryProps> = ({
           {retrying
             ? progressText
             : hasTranscription
-              ? entry.transcription_text
+              ? text
               : entry.source_name
                 ? // Cancelled, interrupted by a quit, or failed.
                   t("settings.history.notTranscribed")

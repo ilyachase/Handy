@@ -7,10 +7,13 @@ import {
   type NoticeSource,
 } from "@/bindings";
 
+/** Frontend-only notices may also report a successful action ("info"). */
+export type LocalNoticeLevel = NoticeLevel | "info";
+
 /** A message from the frontend, so the backend doesn't hold it. */
 export interface LocalNotice {
   id: string;
-  level: NoticeLevel;
+  level: LocalNoticeLevel;
   title: string;
   detail?: string;
   action?: { label: string; onClick: () => void };
@@ -21,7 +24,7 @@ export interface LocalNotice {
 export interface NotifyOptions {
   title: string;
   detail?: string;
-  level?: NoticeLevel;
+  level?: LocalNoticeLevel;
   action?: LocalNotice["action"];
   /**
    * Keeps the notice in the footer until it's dismissed or cleared with this

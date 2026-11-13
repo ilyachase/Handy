@@ -359,6 +359,12 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
                   components={{ code: <code /> }}
                 />
               </p>
+              <p className="text-xs text-ink-3">
+                <Trans
+                  i18nKey="settings.postProcessing.prompts.dictionaryTip"
+                  components={{ code: <code /> }}
+                />
+              </p>
             </div>
 
             <div className="flex gap-2 pt-2">
@@ -423,6 +429,12 @@ const PostProcessingSettingsPromptsComponent: React.FC = () => {
               <p className="text-xs text-ink-3">
                 <Trans
                   i18nKey="settings.postProcessing.prompts.promptTip"
+                  components={{ code: <code /> }}
+                />
+              </p>
+              <p className="text-xs text-ink-3">
+                <Trans
+                  i18nKey="settings.postProcessing.prompts.dictionaryTip"
                   components={{ code: <code /> }}
                 />
               </p>

@@ -348,6 +348,10 @@
           "transcribe_with_post_process": {
             "name": "Post-Processing Hotkey",
             "description": "Optional: A dedicated hotkey that always applies AI post-processing to your transcription."
+          },
+          "add_selection_to_dictionary": {
+            "name": "Add Selection to Custom Words",
+            "description": "Select a word in any app and press this shortcut to add it to custom words."
           }
         },
         "errors": {
@@ -588,7 +592,13 @@
         "placeholder": "Add a word",
         "add": "Add",
         "remove": "Remove {{word}}",
-        "duplicate": "\"{{word}}\" already exists"
+        "duplicate": "\"{{word}}\" already exists",
+        "capture": {
+          "added": "Added \"{{word}}\" to custom words",
+          "empty": "Nothing selected to add",
+          "tooLong": "The selection is longer than 50 characters",
+          "failed": "Couldn't copy the selection"
+        }
       },
       "voiceActivityDetection": {
         "title": "Voice Activity Detection",
@@ -625,6 +635,11 @@
           "traditionalTw": "Traditional (Taiwan)",
           "traditionalHk": "Traditional (Hong Kong)"
         }
+      },
+      "transcriptionPrompt": {
+        "title": "Transcription Prompt",
+        "description": "Example text that sets context and style for models that accept a prompt (Whisper): names, terms, punctuation. Other models ignore it. Leave empty to send nothing.",
+        "placeholder": "e.g. Hello! How are you? We shipped the feature through a pull request, and the CI/CD pipeline passed."
       }
     },
     "postProcessing": {
@@ -687,7 +702,8 @@
         "createPrompt": "Create Prompt",
         "cancel": "Cancel",
         "selectToEdit": "Select a prompt above to view and edit its details.",
-        "createFirst": "Click 'Create New Prompt' above to create your first post-processing prompt."
+        "createFirst": "Click 'Create New Prompt' above to create your first post-processing prompt.",
+        "dictionaryTip": "Use <code>${dictionary}</code> to insert your custom words, separated by commas."
       }
     },
     "history": {
@@ -716,7 +732,12 @@
       "showMore": "Show more",
       "showLess": "Show less",
       "dropTitle": "Drop to transcribe",
-      "dropDescription": "It'll show up in History."
+      "dropDescription": "It'll show up in History.",
+      "textVariant": {
+        "label": "Text version",
+        "processed": "Post-processed",
+        "original": "Original"
+      }
     },
     "debug": {
       "title": "Debug",

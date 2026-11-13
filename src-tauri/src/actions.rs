@@ -131,9 +131,24 @@ fn strip_think_block(s: &str) -> &str {
 }
 
 /// Build a system prompt from the user's prompt template.
-/// Removes `${output}` placeholder since the transcription is sent as the user message.
+/// Removes `${output}` placeholder since the transcription is sent as the user message,
+/// together with a `<transcript>` wrapper left empty by that removal (cjpais/Handy
+/// issue #2269): an empty block makes some models treat the user message as an
+/// instruction instead of the transcript.
 fn build_system_prompt(prompt_template: &str) -> String {
-    prompt_template.replace("${output}", "").trim().to_string()
+    static EMPTY_TRANSCRIPT_BLOCK: Lazy<regex::Regex> =
+        Lazy::new(|| regex::Regex::new(r"<transcript>\s*</transcript>").unwrap());
+    let without_output = prompt_template.replace("${output}", "");
+    EMPTY_TRANSCRIPT_BLOCK
+        .replace_all(&without_output, "")
+        .trim()
+        .to_string()
+}
+
+/// Expand `${dictionary}` to the custom words joined by commas (cjpais/Handy
+/// discussion #2258), so the LLM sees the same list as the recognizer.
+fn expand_dictionary(prompt: &str, custom_words: &[String]) -> String {
+    prompt.replace("${dictionary}", &custom_words.join(", "))
 }
 
 /// Returns `true` when a transcription has no meaningful content to
@@ -249,6 +264,7 @@ async fn post_process_transcription(
         debug!("Post-processing skipped because the selected prompt is empty");
         return PostProcessOutcome::Failed;
     }
+    let prompt = expand_dictionary(&prompt, &settings.custom_words);
 
     debug!(
         "Starting LLM post-processing with provider '{}' (model: {})",
@@ -1043,6 +1059,19 @@ impl ShortcutAction for TestAction {
     }
 }
 
+/// Adds the selected text to custom words (fork feature, discussion #2259).
+/// Fires on key release so the hotkey's modifiers don't leak into Ctrl+C.
+struct AddSelectionToDictionaryAction;
+
+impl ShortcutAction for AddSelectionToDictionaryAction {
+    fn start(&self, _app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {}
+
+    fn stop(&self, app: &AppHandle, _binding_id: &str, _shortcut_str: &str) {
+        let app = app.clone();
+        std::thread::spawn(move || crate::dictionary_capture::capture_selection(&app));
+    }
+}
+
 // Static Action Map
 pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::new(|| {
     let mut map = HashMap::new();
@@ -1063,6 +1092,10 @@ pub static ACTION_MAP: Lazy<HashMap<String, Arc<dyn ShortcutAction>>> = Lazy::ne
     map.insert(
         "test".to_string(),
         Arc::new(TestAction) as Arc<dyn ShortcutAction>,
+    );
+    map.insert(
+        "add_selection_to_dictionary".to_string(),
+        Arc::new(AddSelectionToDictionaryAction) as Arc<dyn ShortcutAction>,
     );
     map
 });
@@ -1260,5 +1293,36 @@ mod tests {
         assert!(!should_use_streaming_overlay(OverlayStyle::Live, false));
         assert!(!should_use_streaming_overlay(OverlayStyle::Minimal, true));
         assert!(!should_use_streaming_overlay(OverlayStyle::None, true));
+    }
+}
+
+#[cfg(test)]
+mod fork_tests {
+    use super::{build_system_prompt, expand_dictionary};
+
+    #[test]
+    fn system_prompt_drops_output_and_its_empty_transcript_wrapper() {
+        let template = "<transcript>\n${output}\n</transcript>\n\nClean it.";
+        assert_eq!(build_system_prompt(template), "Clean it.");
+    }
+
+    #[test]
+    fn system_prompt_without_tags_is_only_trimmed() {
+        assert_eq!(build_system_prompt("  Clean ${output} it. "), "Clean  it.");
+        assert_eq!(
+            build_system_prompt("Keep <transcript>text</transcript> here"),
+            "Keep <transcript>text</transcript> here"
+        );
+    }
+
+    #[test]
+    fn dictionary_placeholder_expands_to_custom_words() {
+        let words = vec!["YClients".to_string(), "Kimi".to_string()];
+        assert_eq!(
+            expand_dictionary("Names: ${dictionary}.", &words),
+            "Names: YClients, Kimi."
+        );
+        assert_eq!(expand_dictionary("Names: ${dictionary}.", &[]), "Names: .");
+        assert_eq!(expand_dictionary("No placeholder", &words), "No placeholder");
     }
 }

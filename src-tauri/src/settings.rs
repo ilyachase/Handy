@@ -119,6 +119,12 @@ pub struct PostProcessProvider {
     pub supports_structured_output: bool,
     #[serde(default)]
     pub api_format: PostProcessApiFormat,
+    /// Reasoning level sent with every post-processing request (e.g. "low"
+    /// for gpt-oss on Fireworks). Overrides the built-in "disable reasoning"
+    /// attempt for custom/openrouter. `None` keeps upstream behavior. Fork
+    /// feature; set in settings_store.json, no UI.
+    #[serde(default)]
+    pub reasoning_effort: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Type)]
@@ -569,6 +575,12 @@ pub struct AppSettings {
     /// `overlay_position` (position `none` → style `None`).
     #[serde(default = "default_overlay_style")]
     pub overlay_style: OverlayStyle,
+    /// Free-text context prompt for models that accept one (whisper family):
+    /// steers names, terminology and punctuation style. `None` or blank sends
+    /// nothing. Fork feature; the key matches klava-nevinovata so its settings
+    /// files load unchanged.
+    #[serde(default)]
+    pub transcription_prompt: Option<String>,
 }
 
 fn default_model() -> String {
@@ -729,6 +741,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             models_endpoint: Some("/models".to_string()),
             supports_structured_output: true,
             api_format: PostProcessApiFormat::OpenAi,
+            reasoning_effort: None,
         },
         PostProcessProvider {
             id: "zai".to_string(),
@@ -738,6 +751,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             models_endpoint: Some("/models".to_string()),
             supports_structured_output: true,
             api_format: PostProcessApiFormat::OpenAi,
+            reasoning_effort: None,
         },
         PostProcessProvider {
             id: "openrouter".to_string(),
@@ -747,6 +761,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             models_endpoint: Some("/models".to_string()),
             supports_structured_output: true,
             api_format: PostProcessApiFormat::OpenAi,
+            reasoning_effort: None,
         },
         PostProcessProvider {
             id: "anthropic".to_string(),
@@ -756,6 +771,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             models_endpoint: Some("/models".to_string()),
             supports_structured_output: false,
             api_format: PostProcessApiFormat::Anthropic,
+            reasoning_effort: None,
         },
         PostProcessProvider {
             id: "groq".to_string(),
@@ -765,6 +781,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             models_endpoint: Some("/models".to_string()),
             supports_structured_output: false,
             api_format: PostProcessApiFormat::OpenAi,
+            reasoning_effort: None,
         },
         PostProcessProvider {
             id: "cerebras".to_string(),
@@ -774,6 +791,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             models_endpoint: Some("/models".to_string()),
             supports_structured_output: true,
             api_format: PostProcessApiFormat::OpenAi,
+            reasoning_effort: None,
         },
     ];
 
@@ -791,6 +809,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
             models_endpoint: None,
             supports_structured_output: true,
             api_format: PostProcessApiFormat::OpenAi,
+            reasoning_effort: None,
         });
     }
 
@@ -803,6 +822,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         models_endpoint: Some("/models".to_string()),
         supports_structured_output: true,
         api_format: PostProcessApiFormat::OpenAi,
+        reasoning_effort: None,
     });
 
     // Custom provider always comes last
@@ -814,6 +834,7 @@ fn default_post_process_providers() -> Vec<PostProcessProvider> {
         models_endpoint: Some("/models".to_string()),
         supports_structured_output: false,
         api_format: PostProcessApiFormat::OpenAi,
+        reasoning_effort: None,
     });
 
     providers
@@ -989,6 +1010,17 @@ pub fn get_default_settings() -> AppSettings {
         },
     );
     bindings.insert(
+        "add_selection_to_dictionary".to_string(),
+        ShortcutBinding {
+            id: "add_selection_to_dictionary".to_string(),
+            name: "Add Selection to Custom Words".to_string(),
+            description: "Adds the text selected in any app to the custom words list."
+                .to_string(),
+            default_binding: "ctrl+alt+shift+a".to_string(),
+            current_binding: "ctrl+alt+shift+a".to_string(),
+        },
+    );
+    bindings.insert(
         "cancel".to_string(),
         ShortcutBinding {
             id: "cancel".to_string(),
@@ -1067,6 +1099,7 @@ pub fn get_default_settings() -> AppSettings {
         language_detection: LanguageDetectionMode::default(),
         language_detection_window_secs: default_language_detection_window_secs(),
         overlay_style: default_overlay_style(),
+        transcription_prompt: None,
     }
 }
 
@@ -2054,5 +2087,57 @@ mod tests {
         let out = format!("{:?}", map);
         assert!(!out.contains("secret"));
         assert!(out.contains("[REDACTED]"));
+    }
+}
+
+#[cfg(test)]
+mod fork_tests {
+    use super::*;
+
+    /// A klava-nevinovata settings store (keys and personal prompts removed):
+    /// the fork reads the same data folder, so the whole file must load as-is.
+    #[test]
+    fn klava_settings_store_loads_with_fork_fields() {
+        let raw = include_str!("../tests/fixtures/klava_settings_store.json");
+        let store: serde_json::Value = serde_json::from_str(raw).unwrap();
+        let settings: AppSettings = serde_json::from_value(store["settings"].clone())
+            .expect("klava settings deserialize without salvage");
+
+        assert_eq!(
+            settings.transcription_prompt.as_deref(),
+            Some("Привет! Как дела? Мы выкатили feature через pull request.")
+        );
+        let fireworks = settings
+            .post_process_providers
+            .iter()
+            .find(|p| p.id == "fireworks")
+            .expect("user-added provider survives");
+        assert_eq!(fireworks.reasoning_effort, None);
+        assert_eq!(settings.post_process_provider_id, "fireworks");
+
+        let mut with_effort = store["settings"].clone();
+        for provider in with_effort["post_process_providers"]
+            .as_array_mut()
+            .unwrap()
+        {
+            if provider["id"] == "fireworks" {
+                provider["reasoning_effort"] = serde_json::json!("low");
+            }
+        }
+        let settings: AppSettings = serde_json::from_value(with_effort).unwrap();
+        let fireworks = settings
+            .post_process_providers
+            .iter()
+            .find(|p| p.id == "fireworks")
+            .unwrap();
+        assert_eq!(fireworks.reasoning_effort.as_deref(), Some("low"));
+    }
+
+    #[test]
+    fn default_settings_include_dictionary_capture_binding() {
+        let defaults = get_default_settings();
+        let binding = &defaults.bindings["add_selection_to_dictionary"];
+        assert_eq!(binding.current_binding, "ctrl+alt+shift+a");
+        assert_eq!(defaults.transcription_prompt, None);
     }
 }

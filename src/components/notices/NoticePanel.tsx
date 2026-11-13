@@ -4,13 +4,17 @@ import { X } from "lucide-react";
 import type { NoticeLevel } from "@/bindings";
 import { NoticeBadgeIcon } from "@/components/icons/NoticeBadgeIcon";
 import { noticeDisplay } from "@/lib/notices";
-import { type LocalNotice, useNoticeStore } from "@/stores/noticeStore";
+import {
+  type LocalNotice,
+  type LocalNoticeLevel,
+  useNoticeStore,
+} from "@/stores/noticeStore";
 
 // Longer than a usual toast: a notice can carry a raw error worth reading.
 const TOAST_MS = 8000;
 
 interface NoticeRowProps {
-  level: NoticeLevel;
+  level: NoticeLevel | LocalNoticeLevel;
   title: string;
   explanation?: string;
   detail?: string | null;
@@ -27,7 +31,12 @@ const NoticeRow: React.FC<NoticeRowProps> = ({
   onDismiss,
 }) => {
   const { t } = useTranslation();
-  const color = level === "error" ? "text-error" : "text-warning";
+  const color =
+    level === "error"
+      ? "text-error"
+      : level === "warning"
+        ? "text-warning"
+        : "text-logo-primary";
 
   return (
     <div className="flex items-start gap-2.5 px-3 py-2.5">

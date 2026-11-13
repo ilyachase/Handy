@@ -33,7 +33,7 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_specta::Event;
-use transcribe_cpp::{Backend, RunOptions, Task, Transcript};
+use transcribe_cpp::{Backend, RunExtension, RunOptions, Task, Transcript, WhisperRunOptions};
 
 mod chunked;
 mod job;
@@ -1264,12 +1264,15 @@ struct RunSetup {
     languages: Vec<String>,
     applied_language_hint: Option<String>,
     output_was_translated: bool,
+    /// Custom words reached the model (as vocabulary or inside the initial
+    /// prompt), so fuzzy correction must not second-guess its output.
+    words_prompted: bool,
 }
 
 impl RunSetup {
-    /// Custom words went to the model as vocabulary; skip fuzzy correction.
+    /// Custom words went to the model; skip fuzzy correction.
     fn custom_words_prompted(&self) -> bool {
-        !self.run_options.vocabulary.is_empty()
+        self.words_prompted
     }
 
     /// The language the runs were in. When the model decided, the language
@@ -1351,19 +1354,39 @@ fn run_setup(info: &LoadedInfo, settings: &AppSettings, language: LanguageDecisi
         language
     };
 
+    let prompting = prompting_for_model(
+        info.supports_vocabulary,
+        info.supports_context_prompt,
+        info.supports_initial_prompt,
+        &settings.custom_words,
+        settings.transcription_prompt.as_deref(),
+    );
+    let words_prompted = prompting.words_prompted(&settings.custom_words);
+    let has_prompt = prompting.prompt.is_some();
+    let has_initial_prompt = prompting.initial_prompt.is_some();
+
     let run_options = RunOptions {
         task: run_plan.task,
         language: run_plan.language,
         target_language: run_plan.target_language,
-        vocabulary: vocabulary_for_model(info.supports_vocabulary, &settings.custom_words),
+        vocabulary: prompting.vocabulary,
+        prompt: prompting.prompt,
+        family: prompting.initial_prompt.map(|initial_prompt| {
+            RunExtension::Whisper(WhisperRunOptions {
+                initial_prompt: Some(initial_prompt),
+                ..Default::default()
+            })
+        }),
         ..Default::default()
     };
 
     debug!(
-        "transcribe-cpp run: task={:?}, language={:?}, vocabulary_terms={}",
+        "transcribe-cpp run: task={:?}, language={:?}, vocabulary_terms={}, context_prompt={}, initial_prompt={}",
         run_options.task,
         run_options.language,
-        run_options.vocabulary.len()
+        run_options.vocabulary.len(),
+        has_prompt,
+        has_initial_prompt
     );
 
     RunSetup {
@@ -1372,6 +1395,7 @@ fn run_setup(info: &LoadedInfo, settings: &AppSettings, language: LanguageDecisi
         languages,
         applied_language_hint,
         output_was_translated,
+        words_prompted,
     }
 }
 
@@ -1585,6 +1609,66 @@ fn with_model_detected_language(
             OutputLanguageEvidence::ModelDetected(language)
         }
         (evidence, _) => evidence,
+    }
+}
+
+/// How custom words and the user's transcription prompt reach the model.
+#[derive(Debug, Default, PartialEq)]
+struct Prompting {
+    vocabulary: Vec<String>,
+    /// `RunOptions::prompt` (models with `Feature::ContextPrompt`).
+    prompt: Option<String>,
+    /// The whisper run extension's initial prompt (`Feature::InitialPrompt`).
+    initial_prompt: Option<String>,
+}
+
+impl Prompting {
+    fn words_prompted(&self, custom_words: &[String]) -> bool {
+        !self.vocabulary.is_empty() || (self.initial_prompt.is_some() && !custom_words.is_empty())
+    }
+}
+
+/// Route the transcription prompt to the slot the loaded model supports.
+/// Without a prompt this is upstream's behavior (custom words as vocabulary).
+/// transcribe-cpp rejects the whisper `initial_prompt` combined with
+/// `vocabulary`/`prompt`, so on that path custom words join the initial
+/// prompt instead of the vocabulary.
+fn prompting_for_model(
+    supports_vocabulary: bool,
+    supports_context_prompt: bool,
+    supports_initial_prompt: bool,
+    custom_words: &[String],
+    transcription_prompt: Option<&str>,
+) -> Prompting {
+    let vocabulary = || vocabulary_for_model(supports_vocabulary, custom_words);
+    let Some(text) = transcription_prompt.map(str::trim).filter(|t| !t.is_empty()) else {
+        return Prompting {
+            vocabulary: vocabulary(),
+            ..Default::default()
+        };
+    };
+    if supports_context_prompt {
+        return Prompting {
+            vocabulary: vocabulary(),
+            prompt: Some(text.to_string()),
+            initial_prompt: None,
+        };
+    }
+    if supports_initial_prompt {
+        let mut parts = Vec::new();
+        if !custom_words.is_empty() {
+            parts.push(custom_words.join(", "));
+        }
+        parts.push(text.to_string());
+        return Prompting {
+            vocabulary: Vec::new(),
+            prompt: None,
+            initial_prompt: Some(parts.join("\n\n")),
+        };
+    }
+    Prompting {
+        vocabulary: vocabulary(),
+        ..Default::default()
     }
 }
 
@@ -2354,6 +2438,7 @@ mod tests {
     }
 
     #[test]
+    #[test]
     fn fuzzy_correction_is_skipped_exactly_when_vocabulary_was_sent() {
         let settings = AppSettings {
             selected_language: "en".to_string(),
@@ -2419,5 +2504,62 @@ impl Drop for TranscriptionManager {
                 debug!("Idle watcher thread joined successfully");
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod fork_tests {
+    use super::prompting_for_model;
+
+    fn words(list: &[&str]) -> Vec<String> {
+        list.iter().map(|w| w.to_string()).collect()
+    }
+
+    #[test]
+    fn prompting_without_prompt_keeps_upstream_vocabulary() {
+        let p = prompting_for_model(true, true, true, &words(&["Handy"]), None);
+        assert_eq!(p.vocabulary, words(&["Handy"]));
+        assert_eq!(p.prompt, None);
+        assert_eq!(p.initial_prompt, None);
+        let blank = prompting_for_model(true, false, true, &words(&["Handy"]), Some("   "));
+        assert_eq!(blank.vocabulary, words(&["Handy"]));
+        assert_eq!(blank.initial_prompt, None);
+    }
+
+    #[test]
+    fn prompting_uses_context_prompt_slot_when_supported() {
+        let p = prompting_for_model(true, true, true, &words(&["Handy"]), Some(" Привет! "));
+        assert_eq!(p.vocabulary, words(&["Handy"]));
+        assert_eq!(p.prompt.as_deref(), Some("Привет!"));
+        assert_eq!(p.initial_prompt, None);
+        assert!(p.words_prompted(&words(&["Handy"])));
+    }
+
+    #[test]
+    fn prompting_falls_back_to_initial_prompt_without_vocabulary() {
+        let p = prompting_for_model(
+            true,
+            false,
+            true,
+            &words(&["Handy", "GitHub"]),
+            Some("Привет!"),
+        );
+        assert!(p.vocabulary.is_empty());
+        assert_eq!(p.prompt, None);
+        assert_eq!(p.initial_prompt.as_deref(), Some("Handy, GitHub\n\nПривет!"));
+        assert!(p.words_prompted(&words(&["Handy", "GitHub"])));
+
+        let no_words = prompting_for_model(true, false, true, &[], Some("Привет!"));
+        assert_eq!(no_words.initial_prompt.as_deref(), Some("Привет!"));
+        assert!(!no_words.words_prompted(&[]));
+    }
+
+    #[test]
+    fn prompting_drops_prompt_for_models_without_a_slot() {
+        let p = prompting_for_model(false, false, false, &words(&["Handy"]), Some("Привет!"));
+        assert!(p.vocabulary.is_empty());
+        assert_eq!(p.prompt, None);
+        assert_eq!(p.initial_prompt, None);
+        assert!(!p.words_prompted(&words(&["Handy"])));
     }
 }
