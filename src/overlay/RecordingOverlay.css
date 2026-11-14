@@ -176,6 +176,10 @@
 .scard.level-warning {
   --notice: var(--color-warning);
 }
+/* Fork: the add-selection hotkey's successful result. */
+.scard.level-success {
+  --notice: var(--color-moss);
+}
 .sbase.snotice {
   grid-template-columns: auto minmax(0, max-content);
   justify-content: center;

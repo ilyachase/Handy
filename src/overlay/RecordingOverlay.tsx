@@ -10,8 +10,10 @@ import type {
   StreamTextEvent,
   StreamWorkKind,
 } from "@/bindings";
+import { CheckBadgeIcon } from "@/components/icons/CheckBadgeIcon";
 import { NoticeBadgeIcon } from "@/components/icons/NoticeBadgeIcon";
 import i18n, { syncLanguageFromSettings } from "@/i18n";
+import { captureDisplay, type CaptureOutcome } from "@/lib/dictionaryCapture";
 import { noticeDisplay } from "@/lib/notices";
 import type { ModelStateEvent } from "@/lib/types/events";
 import { getLanguageDirection } from "@/lib/utils/rtl";
@@ -22,7 +24,9 @@ type OverlayState =
   | "transcribing"
   | "processing"
   | "notice"
-  | "live_notice";
+  | "live_notice"
+  // Fork: the add-selection hotkey's result, see `show_capture_result`.
+  | "capture";
 
 const isNoticeState = (state: OverlayState) =>
   state === "notice" || state === "live_notice";
@@ -80,6 +84,7 @@ const RecordingOverlay: React.FC = () => {
   // while overflowing, so the resting first line stays crisp flush under the pill.
   const [overflowing, setOverflowing] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [capture, setCapture] = useState<CaptureOutcome | null>(null);
   const [noticeWidth, setNoticeWidth] = useState<number>();
   const noticeProbeRef = useRef<HTMLSpanElement>(null);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout>>();
@@ -99,10 +104,19 @@ const RecordingOverlay: React.FC = () => {
         setNotice(event.payload);
       });
 
+      const unlistenCapture = await listen<CaptureOutcome>(
+        "overlay-capture",
+        (event) => {
+          clearTimeout(fadeTimerRef.current);
+          setCapture(event.payload);
+        },
+      );
+
       const unlistenShow = await listen("show-overlay", async (event) => {
         const overlayState = event.payload as OverlayState;
         clearTimeout(fadeTimerRef.current);
         if (!isNoticeState(overlayState)) setNotice(null);
+        if (overlayState !== "capture") setCapture(null);
         // Reset synchronously before settings I/O. A fast microphone can emit
         // recording-ready while the awaits below are in flight; resetting after
         // them would overwrite that event and leave the overlay stuck arming.
@@ -145,6 +159,7 @@ const RecordingOverlay: React.FC = () => {
         clearTimeout(fadeTimerRef.current);
         fadeTimerRef.current = setTimeout(() => {
           setNotice(null);
+          setCapture(null);
           setStreamText({ committed: "", tentative: "" });
         }, OVERLAY_FADE_MS);
       });
@@ -205,6 +220,7 @@ const RecordingOverlay: React.FC = () => {
 
       return () => {
         unlistenNotice();
+        unlistenCapture();
         unlistenShow();
         unlistenHide();
         unlistenReady();
@@ -250,9 +266,17 @@ const RecordingOverlay: React.FC = () => {
   }, [session]);
 
   const shownNotice = notice && isNoticeState(state) ? notice : null;
-  const noticeTitle = shownNotice
-    ? t(noticeDisplay(shownNotice.code).title)
-    : "";
+  const shownCapture = capture && state === "capture" ? capture : null;
+  // A notice and the hotkey's result share the badge + title pill.
+  const pillMessage = shownNotice
+    ? {
+        title: t(noticeDisplay(shownNotice.code).title),
+        level: shownNotice.level,
+      }
+    : shownCapture
+      ? captureDisplay(shownCapture, t)
+      : null;
+  const noticeTitle = pillMessage?.title ?? "";
 
   // CSS can't animate to an intrinsic width, so a notice pill gets a measured one.
   useLayoutEffect(() => {
@@ -263,7 +287,7 @@ const RecordingOverlay: React.FC = () => {
     );
   }, [noticeTitle, isVisible]);
 
-  if (!isVisible && !shownNotice) return null;
+  if (!isVisible && !pillMessage) return null;
 
   // Re-pin when the user is within ~a line of the bottom; unpin otherwise.
   const handleStreamScroll = () => {
@@ -339,17 +363,22 @@ const RecordingOverlay: React.FC = () => {
 
   const noticeRow = (
     <div className="sbase snotice">
-      <NoticeBadgeIcon className="nglyph" />
+      {pillMessage?.level === "success" ? (
+        <CheckBadgeIcon className="nglyph" />
+      ) : (
+        <NoticeBadgeIcon className="nglyph" />
+      )}
       <span className="nlabel">{noticeTitle}</span>
     </div>
   );
-  const noticeProbe = shownNotice && (
+  const noticeProbe = pillMessage && (
     <span ref={noticeProbeRef} className="nlabel nprobe" aria-hidden="true">
       {noticeTitle}
     </span>
   );
-  const noticeClass = shownNotice ? `cnotice level-${shownNotice.level}` : "";
-  const dismissNotice = shownNotice
+  const noticeClass = pillMessage ? `cnotice level-${pillMessage.level}` : "";
+  // The backend dismisses the hotkey's result the same way as a notice.
+  const dismissNotice = pillMessage
     ? () => commands.dismissOverlayNotice()
     : undefined;
 
@@ -444,10 +473,10 @@ const RecordingOverlay: React.FC = () => {
       {noticeProbe}
       <div
         className={`scard compact ${working && isVisible ? "cworking" : ""} ${noticeClass}`}
-        style={shownNotice ? { width: noticeWidth } : undefined}
+        style={pillMessage ? { width: noticeWidth } : undefined}
         onClick={dismissNotice}
       >
-        {shownNotice
+        {pillMessage
           ? noticeRow
           : working
             ? workingRow(workLabel, true)

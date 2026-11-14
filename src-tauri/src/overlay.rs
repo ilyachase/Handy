@@ -1,3 +1,4 @@
+use crate::dictionary_capture::CaptureOutcome;
 use crate::input;
 use crate::notices::Notice;
 use crate::settings;
@@ -676,6 +677,42 @@ pub fn show_overlay_notice(app_handle: &AppHandle, notice: &Notice) {
         OVERLAY_NOTICE_GENERATION.store(generation, Ordering::SeqCst);
         std::thread::spawn(move || {
             std::thread::sleep(NOTICE_HOLD);
+            if OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst) == generation {
+                hide_recording_overlay(&handle);
+            }
+        });
+    });
+}
+
+/// Compact pill showing the add-selection hotkey's result (fork feature).
+const CAPTURE_STATE: &str = "capture";
+
+/// How long the hotkey's result holds before the overlay fades it.
+const CAPTURE_HOLD: Duration = Duration::from_secs(3);
+
+/// Shows the add-selection hotkey's result in the compact pill, so it's seen
+/// with the settings window minimized. It never replaces a recording or
+/// transcribing session; the settings window's toast still reports it then.
+/// Clicking it dismisses it like a notice.
+pub fn show_capture_result(app_handle: &AppHandle, outcome: &CaptureOutcome) {
+    if !OVERLAY_ENABLED.load(Ordering::Relaxed) || is_session_showing() {
+        return;
+    }
+    let handle = app_handle.clone();
+    let outcome = outcome.clone();
+    let _ = app_handle.run_on_main_thread(move || {
+        // Checked again here: a session queued after the check above sets the
+        // flag before its own main-thread hop, so it wins.
+        if is_session_showing() {
+            return;
+        }
+        let _ = handle.emit_to("recording_overlay", "overlay-capture", outcome);
+        show_overlay_state_on_main(&handle, CAPTURE_STATE);
+
+        let generation = OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst);
+        OVERLAY_NOTICE_GENERATION.store(generation, Ordering::SeqCst);
+        std::thread::spawn(move || {
+            std::thread::sleep(CAPTURE_HOLD);
             if OVERLAY_SHOW_GENERATION.load(Ordering::SeqCst) == generation {
                 hide_recording_overlay(&handle);
             }

@@ -21,6 +21,8 @@
 > - **Add selection to custom words** hotkey (default `Ctrl+Alt+Shift+A`):
 >   copies the selected text in any app and adds it to custom words
 >   ([discussion #2259](https://github.com/cjpais/Handy/discussions/2259)).
+>   The result shows in the recording overlay too, so it is seen with the
+>   window minimized.
 > - **Post-processed text in History**: entries show what was pasted, with a
 >   toggle back to the original transcript; Copy takes the visible version
 >   ([discussion #2260](https://github.com/cjpais/Handy/discussions/2260)).

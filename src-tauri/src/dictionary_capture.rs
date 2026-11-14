@@ -12,7 +12,8 @@ use tauri::{AppHandle, Emitter};
 pub const MAX_WORD_LEN: usize = 50;
 
 /// Emitted to the main window, which shows the result as a toast and reloads
-/// settings.
+/// settings. The recording overlay also shows it, see
+/// [`crate::overlay::show_capture_result`].
 pub const RESULT_EVENT: &str = "dictionary-capture-result";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -87,6 +88,7 @@ pub fn capture_selection(app: &AppHandle) {
     };
     info!("Add-selection hotkey result: {}", outcome_kind(&outcome));
     let _ = app.emit(RESULT_EVENT, &outcome);
+    crate::overlay::show_capture_result(app, &outcome);
 }
 
 #[cfg(test)]
